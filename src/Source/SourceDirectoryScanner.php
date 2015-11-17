@@ -20,10 +20,12 @@ class SourceDirectoryScanner
      * @param TombstoneExtractor $tombstoneExtractor
      * @param string $sourcePath
      */
-    public function __construct(TombstoneExtractor $tombstoneExtractor, $sourcePath)
+    public function __construct(TombstoneExtractor $tombstoneExtractor, $sourcePath, $excludeDirs, $excludeFiles, $ignoreErrors)
     {
+
+		$this->ignoreErrors = $ignoreErrors;
         $this->tombstoneExtractor = $tombstoneExtractor;
-        $finder = new FinderFacade(array($sourcePath), array(), array('*.php'));
+        $finder = new FinderFacade(array($sourcePath), $excludeDirs, array('*.php'), $excludeFiles);
         $this->files = $finder->findFiles();
     }
 
@@ -35,7 +37,17 @@ class SourceDirectoryScanner
     public function getTombstones(callable $onProgress)
     {
         foreach ($this->files as $file) {
-            $this->tombstoneExtractor->extractTombstones($file);
+
+			if ($this->ignoreErrors) {
+				try {
+            		$this->tombstoneExtractor->extractTombstones($file);
+				} catch (\Exception $e) {
+					print "\nIgnore parse error: " . $e->getMessage() . "\n";
+				}
+			} else {
+            	$this->tombstoneExtractor->extractTombstones($file);
+			}
+
             $onProgress();
         }
 

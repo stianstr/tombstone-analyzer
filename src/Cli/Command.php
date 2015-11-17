@@ -34,11 +34,19 @@ class Command extends AbstractCommand
             ->setName('tombstone')
             ->addArgument('source-dir', InputArgument::REQUIRED, 'Path to PHP source files')
             ->addArgument('log-dir', InputArgument::REQUIRED, 'Path to the log files')
-            ->addOption('report-html', 'rh', InputOption::VALUE_REQUIRED, 'Generate HTML report to a directory');
+            ->addOption('report-html', 'rh', InputOption::VALUE_REQUIRED, 'Generate HTML report to a directory')
+            ->addOption('exclude-dir', 'ed', InputOption::VALUE_OPTIONAL | InputOption::VALUE_IS_ARRAY, 'Exclude directories')
+            ->addOption('exclude-file', 'ef', InputOption::VALUE_OPTIONAL | InputOption::VALUE_IS_ARRAY, 'Exclude files (pattern)')
+            ->addOption('ignore-parse-errors', 'ie', InputOption::VALUE_OPTIONAL, 'Ignore errors parsing source files');
     }
 
     protected function execute(InputInterface $input, OutputInterface $output)
     {
+
+        $excludeDirs = $input->getOption('exclude-dir');
+        $excludeFiles = $input->getOption('exclude-file');
+		$ignoreParseErrors = $input->getOption('ignore-parse-errors') ? true : false;
+
         $this->output = $output;
         $htmlReportDir = $input->getOption('report-html');
         $sourceDir = realpath($input->getArgument('source-dir'));
@@ -53,7 +61,7 @@ class Command extends AbstractCommand
             return 1;
         }
 
-        $result = $this->createResult($sourceDir, $logDir);
+        $result = $this->createResult($sourceDir, $logDir, $excludeDirs, $excludeFiles, $ignoreParseErrors);
         $report = new ConsoleReportGenerator($output, $sourceDir);
         $report->generate($result);
 
@@ -70,10 +78,10 @@ class Command extends AbstractCommand
      *
      * @return AnalyzerResult
      */
-    private function createResult($sourceDir, $logDir) {
+    private function createResult($sourceDir, $logDir, $excludeDirs, $excludeFiles, $ignoreParseErrors) {
         $this->output->writeln('');
         $this->output->writeln('Scan source code ...');
-        $sourceScanner = new SourceDirectoryScanner(TombstoneExtractorFactory::create(new TombstoneIndex($sourceDir)), $sourceDir);
+        $sourceScanner = new SourceDirectoryScanner(TombstoneExtractorFactory::create(new TombstoneIndex($sourceDir)), $sourceDir, $excludeDirs, $excludeFiles, $ignoreParseErrors);
 
         $progress = $this->createProgressBar($sourceScanner->getNumFiles());
         $tombstoneIndex = $sourceScanner->getTombstones(function() use ($progress) {
